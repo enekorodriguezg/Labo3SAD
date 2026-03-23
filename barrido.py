@@ -23,7 +23,7 @@ def main():
         for p in range(1, p_max + 1):
             for w in pesos:
                 comando = [
-                    "python", "kNN.py",
+                    "python", "train.py",
                     archivo_datos,
                     str(k),
                     w,
