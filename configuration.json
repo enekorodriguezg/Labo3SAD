@@ -5,6 +5,6 @@
     "impute_strategy": "mean",
     "scaling": "standard",
     "text_process": "tf-idf",
-    "sampling": "undersampling"
+    "sampling": "oversampling"
   }
 }

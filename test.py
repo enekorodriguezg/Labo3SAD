@@ -1,6 +1,8 @@
 import sys
 import pandas as pd
 import pickle
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 
 def main():
@@ -12,8 +14,6 @@ def main():
     archivo_modelo = sys.argv[2]
 
     print(f"Cargando el modelo {archivo_modelo}...")
-
-    # 1. Recargar el modelo del disco
     try:
         clf = pickle.load(open(archivo_modelo, 'rb'))
     except FileNotFoundError:
@@ -21,33 +21,62 @@ def main():
         sys.exit(1)
 
     print(f"Cargando nuevas instancias desde {archivo_nuevos_datos}...")
-
-    # 2. Cargar los datos nuevos (OJO: estos datos NO deben tener la columna 'Especie' o target)
     try:
         X_nuevo = pd.read_csv(archivo_nuevos_datos)
     except FileNotFoundError:
         print(f"Error: No se encuentra el archivo de datos {archivo_nuevos_datos}.")
         sys.exit(1)
 
-    # 3. Clasificar las nuevas instancias
     try:
+        # CIRUGÍA VITAL: Secuestrar el ID temporalmente
+        columna_id = None
+        if 'ID' in X_nuevo.columns:
+            columna_id = X_nuevo['ID'].copy()
+            X_nuevo = X_nuevo.drop(columns=['ID'])
+            print("[INFO] Columna 'ID' separada temporalmente para la predicción.")
+
+        # Inferencia matemática pura
         resultado = clf.predict(X_nuevo)
 
-        # Opcional: Añadir las predicciones como una nueva columna al dataframe original
+        # Restaurar el ID al principio del dataframe para la entrega
+        if columna_id is not None:
+            X_nuevo.insert(0, 'ID', columna_id)
+
+        # CIRUGÍA: Desfragmentar la memoria RAM antes de añadir más columnas
+        X_nuevo = X_nuevo.copy()
+
+        # Añadir la columna con la solución
         X_nuevo['Prediccion_Clase'] = resultado
 
-        # Guardar el resultado en un nuevo CSV para que puedas entregarlo
-        archivo_salida = "predicciones_finales.csv"
+        # BLINDAJE: Nombramos el CSV de salida dinámicamente según el modelo usado
+        nombre_base_modelo = archivo_modelo.replace('.sav', '')
+        archivo_salida = f"predicciones_{nombre_base_modelo}.csv"
         X_nuevo.to_csv(archivo_salida, index=False)
 
-        print("\n¡Clasificación completada!")
-        print(f"Los resultados se han guardado en: {archivo_salida}")
-        print(X_nuevo.head())  # Mostramos las 5 primeras predicciones
+        print(f"\n¡Clasificación completada! Resultados en: {archivo_salida}")
+
+        # LA VISUALIZACIÓN: Si estamos en modo de prueba y guardaste las soluciones, dibuja la Matriz
+        archivo_soluciones = "datos_test_20_soluciones.csv"
+        try:
+            df_soluciones = pd.read_csv(archivo_soluciones)
+            # Solo dibuja si el número de filas coincide (es decir, no es el archivo ciego de Kaggle)
+            if len(df_soluciones) == len(resultado):
+                y_real = df_soluciones['Etiqueta_Real']
+
+                cm = confusion_matrix(y_real, resultado)
+                disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+                disp.plot(cmap=plt.cm.Blues)
+
+                plt.title(f"Matriz de Confusión: {nombre_base_modelo}")
+                print("\n[INFO] Mostrando Matriz de Confusión. Cierra la ventana emergente para terminar el script.")
+                plt.show()
+            else:
+                print("\n[AVISO] Los datos evaluados no corresponden al test del 20%, omitiendo gráfica.")
+        except FileNotFoundError:
+            pass  # Si no existe el archivo de soluciones, simplemente termina en silencio
 
     except Exception as e:
-        print(f"\nError al predecir: {e}")
-        print(
-            "Asegúrate de que el CSV de datos nuevos tiene exactamente las mismas columnas (y en el mismo orden) que los datos de entrenamiento, SIN la columna objetivo.")
+        print(f"\nError crítico al predecir: {e}")
 
 
 if __name__ == "__main__":
