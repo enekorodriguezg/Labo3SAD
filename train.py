@@ -83,7 +83,7 @@ def main():
     with open(archivo_config, 'r') as f:
         config = json.load(f)["preprocessing"] #Se abre el archivo configuration.json para el preprocesado
 
-    # Se separan las columnas con valores númericos de las columnas de valores categóricos
+    # Se separan las columnas con valores numéricos de las columnas de valores categóricos
     numeric_features = X_train.select_dtypes(include=['int64', 'float64']).columns
     categorical_features = X_train.select_dtypes(include=['object', 'category']).columns
 

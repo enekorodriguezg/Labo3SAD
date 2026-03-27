@@ -1,2 +1,10 @@
-SantanderTraHalfHalf.csv
-SantanderTest.csv
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.idea/
+*.swp
+*.sav
+*.csv
