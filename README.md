@@ -67,3 +67,6 @@ python test.py datos_test.csv mejor_modelo_rf.sav
 2. **Pipelines para Variables Categóricas:** El preprocesador (`ColumnTransformer`) detecta dinámicamente qué columnas son de texto (categóricas) y cuáles numéricas. Aplica transformaciones de `OneHotEncoder` de forma segura a las de texto, evitando fallos de compilación al enfrentarse a datasets complejos como el de Santander.
 3. **ImbPipeline:** Se ha utilizado la tubería de la librería `imbalanced-learn` en lugar de la estándar de `scikit-learn` para asegurar que el balanceo de clases (SMOTE/Undersampling) se aplique **exclusivamente** sobre los pliegues de entrenamiento durante la validación cruzada, evitando el *data leakage* en la validación.
 `
+
+## ⚖️ Licencia
+Este proyecto está bajo la Licencia MIT. Consulta el archivo [LICENSE](LICENSE) para más detalles.
