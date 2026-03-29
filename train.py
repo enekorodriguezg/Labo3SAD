@@ -36,6 +36,7 @@ def guardar_metricas(cv_results, nombre_archivo): #Coge los datos de interés (P
 def main():
     parser = argparse.ArgumentParser(description='Entrenamiento Universal de modelos ML') #Permite que se ejecute desde la terminal pasándole opciones
     parser.add_argument('archivo_datos', type=str, help='Ruta al dataset')
+    parser.add_argument('-p', '--pred', type=str, required=True, help='Nombre de la columna a predecir')
     parser.add_argument('--algo', type=str, choices=['knn', 'tree', 'nb', 'rf', 'all'], default='all')
     parser.add_argument('-c', '--config', type=str, required=True, help='Ruta al archivo JSON de configuración')
 
@@ -49,16 +50,25 @@ def main():
         print(f"Error crítico: No se encuentra {args.archivo_datos}")
         sys.exit(1)
 
+    # Verificación de seguridad: ¿Existe la columna objetivo?
+    if args.pred not in df.columns:
+        print(f"Error crítico: La columna objetivo '{args.pred}' no existe en el dataset. Revisa el nombre exacto.")
+        sys.exit(1)
+
     # Búsqueda dinámica de la columna ID. No dependemos de mayúsculas ni nombres exactos.
     posibles_nombres_id = ['id', 'id_cliente', 'identifier', 'identificador', 'passengerid', 'customerid']
-    columnas_a_eliminar = [col for col in df.columns if col.lower() in posibles_nombres_id]
+    columnas_a_eliminar = [
+        col for col in df.columns 
+        if col.lower() in posibles_nombres_id and col != args.pred
+    ]
     
     if columnas_a_eliminar:
         df = df.drop(columns=columnas_a_eliminar)
         print(f"Columna(s) identificadora(s) detectada(s) y eliminada(s): {columnas_a_eliminar}")
 
-    X = df.iloc[:, :-1]
-    y = df.iloc[:, -1]
+    # Separación dinámica basada en el argumento del usuario
+    y = df[args.pred]
+    X = df.drop(columns=[args.pred])
 
     le = LabelEncoder() #Coge la columna objetivo y la convierte en números (0 y 1)
     y = le.fit_transform(y)
