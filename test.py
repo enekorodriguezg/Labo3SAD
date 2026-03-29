@@ -13,48 +13,68 @@ def main():
 
     print(f"Cargando el modelo {archivo_modelo}...")
     try:
-        clf = pickle.load(open(archivo_modelo, 'rb')) #Se "despierta" al modelo ganador que se haya indicado por terminal
+        clf = pickle.load(open(archivo_modelo, 'rb'))
     except FileNotFoundError:
         print(f"Error: No se encuentra el modelo {archivo_modelo}.")
         sys.exit(1)
 
+    # Cargar obligatoriamente el LabelEncoder para traducir los números de vuelta a texto.
+    try:
+        le = pickle.load(open('label_encoder.sav', 'rb'))
+    except FileNotFoundError:
+        print("Error crítico: No se encuentra 'label_encoder.sav'. Es necesario para traducir las predicciones.")
+        sys.exit(1)
+
     print(f"Cargando nuevas instancias desde {archivo_nuevos_datos}...")
     try:
-        X_nuevo = pd.read_csv(archivo_nuevos_datos) #Se carga el .csv "ciego" que se nos haya dado para el test.
+        X_nuevo = pd.read_csv(archivo_nuevos_datos)
     except FileNotFoundError:
         print(f"Error: No se encuentra el archivo de datos {archivo_nuevos_datos}.")
         sys.exit(1)
 
     try:
-        #Se "secuestra" el ID temporalmente porque si el algoritmo lo toma como un dato matemático para predecir, fallará.
-        columna_id = None
-        if 'ID' in X_nuevo.columns:
-            columna_id = X_nuevo['ID'].copy()
-            X_nuevo = X_nuevo.drop(columns=['ID'])
-            print("[INFO] Columna 'ID' separada temporalmente para la predicción.")
+        # Búsqueda dinámica de la columna ID igual que en train.py
+        columna_id_nombre = None
+        columna_id_datos = None
+        posibles_nombres_id = ['id', 'id_cliente', 'identifier', 'identificador', 'passengerid', 'customerid']
+        
+        for col in X_nuevo.columns:
+            if col.lower() in posibles_nombres_id:
+                columna_id_nombre = col
+                columna_id_datos = X_nuevo[col].copy()
+                X_nuevo = X_nuevo.drop(columns=[col])
+                print(f"[INFO] Columna '{col}' detectada como identificador y separada temporalmente.")
+                break # Solo extraemos la primera que coincida
 
-        resultado = clf.predict(X_nuevo) #Se genera la lista de soluciones
+        # Blindaje contra columnas sobrantes (Ej: Si la profesora te da el dataset con la columna objetivo incluida)
+        if hasattr(clf, 'feature_names_in_'):
+            columnas_esperadas = list(clf.feature_names_in_)
+            columnas_sobrantes = set(X_nuevo.columns) - set(columnas_esperadas)
+            if columnas_sobrantes:
+                X_nuevo = X_nuevo.drop(columns=list(columnas_sobrantes))
+                print(f"[INFO] Columnas sobrantes extirpadas para evitar fallos de dimensionalidad: {columnas_sobrantes}")
 
-        #Se restaura el ID al principio del dataframe para la entrega
-        if columna_id is not None:
-            X_nuevo.insert(0, 'ID', columna_id)
+        # Generar predicciones numéricas
+        resultado_numerico = clf.predict(X_nuevo) 
 
-        X_nuevo = X_nuevo.copy() #Se desfragmenta la memoria RAM antes de añadir la última columna
+        # Restaurar el ID original si existía
+        if columna_id_nombre is not None:
+            X_nuevo.insert(0, columna_id_nombre, columna_id_datos)
 
-        X_nuevo['Prediccion_Clase'] = resultado #Se añade la columna con la solución
+        X_nuevo = X_nuevo.copy()
 
-        #Se nombra el CSV de salida dinámicamente según el modelo usado
+        # Inyección de las predicciones traducidas (Texto, no números)
+        X_nuevo['Prediccion_Clase'] = le.inverse_transform(resultado_numerico)
+
         nombre_puro = os.path.basename(archivo_modelo)
         nombre_base_modelo = nombre_puro.replace('.sav', '')
         archivo_salida = f"predicciones_{nombre_base_modelo}.csv"
 
         X_nuevo.to_csv(archivo_salida, index=False)
-
-        print(f"\n¡Clasificación completada! Resultados en: {archivo_salida}")
+        print(f"\n¡Clasificación completada! Resultados legibles en: {archivo_salida}")
 
     except Exception as e:
         print(f"\nError crítico al predecir: {e}")
-
 
 if __name__ == "__main__":
     main()
