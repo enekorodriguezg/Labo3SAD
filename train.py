@@ -20,7 +20,7 @@ from imblearn.pipeline import Pipeline as ImbPipeline
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import SMOTE
 
-def guardar_metricas(cv_results, nombre_archivo):
+def guardar_metricas(cv_results, nombre_archivo): #Coge los datos de interés (Precisión, Recall, F1, Accuracy) y los mete en un .csv
     df_res = pd.DataFrame(cv_results)
     cols_to_keep = ['params', 'mean_test_precision', 'mean_test_recall', 'mean_test_f1_macro', 'mean_test_accuracy']
     df_clean = df_res[cols_to_keep].rename(columns={
@@ -34,7 +34,7 @@ def guardar_metricas(cv_results, nombre_archivo):
     print(f"Métricas exportadas a: {nombre_archivo}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Entrenamiento Universal de modelos ML')
+    parser = argparse.ArgumentParser(description='Entrenamiento Universal de modelos ML') #Permite que se ejecute desde la terminal pasándole opciones
     parser.add_argument('archivo_datos', type=str, help='Ruta al dataset')
     parser.add_argument('--algo', type=str, choices=['knn', 'tree', 'nb', 'rf', 'all'], default='all')
     parser.add_argument('-c', '--config', type=str, required=True, help='Ruta al archivo JSON de configuración')
@@ -44,7 +44,7 @@ def main():
 
     print(f"1. Ingesta de Datos y Limpieza")
     try:
-        df = pd.read_csv(args.archivo_datos)
+        df = pd.read_csv(args.archivo_datos) #Carga el archivo de datos
     except FileNotFoundError:
         print(f"Error crítico: No se encuentra {args.archivo_datos}")
         sys.exit(1)
@@ -60,7 +60,7 @@ def main():
     X = df.iloc[:, :-1]
     y = df.iloc[:, -1]
 
-    le = LabelEncoder()
+    le = LabelEncoder() #Coge la columna objetivo y la convierte en números (0 y 1)
     y = le.fit_transform(y)
     
     # Guardamos el traductor de clases para que test.py sepa qué significa 0, 1, 2...
@@ -68,7 +68,7 @@ def main():
     print("LabelEncoder guardado dinámicamente en 'label_encoder.sav'.")
 
     print(f"2. Partición: 80% Entrenamiento / 20% Test Ciego")
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y) #stratify=y asegura que si tienes un 90% de casos sanos y un 10% de enfermos en el total, se mantenga exactamente esa misma proporción en el 80% y en el 20%.
 
     archivo_test = "datos_test_20_ciego.csv"
     X_test.to_csv(archivo_test, index=False)
@@ -82,25 +82,25 @@ def main():
         config = config_completo["preprocessing"]
 
     numeric_features = X_train.select_dtypes(include=['int64', 'float64']).columns
-    categorical_features = X_train.select_dtypes(include=['object', 'category']).columns
+    categorical_features = X_train.select_dtypes(include=['object', 'category']).columns #Se separan las columnas numéricas de las categóricas
 
     numeric_transformer = ImbPipeline(steps=[
-        ('imputer', SimpleImputer(strategy=config.get('impute_strategy', 'median'))),
-        ('scaler', StandardScaler() if config.get('scaling') == 'standard' else 'passthrough')
+        ('imputer', SimpleImputer(strategy=config.get('impute_strategy', 'median'))), #Si hay huecos vacíos, se rellenan con la mediana.
+        ('scaler', StandardScaler() if config.get('scaling') == 'standard' else 'passthrough') #Escala los valores
     ])
 
     categorical_transformer = ImbPipeline(steps=[
-        ('imputer', SimpleImputer(strategy='most_frequent')),
-        ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
+        ('imputer', SimpleImputer(strategy='most_frequent')), #Si hay huecos vacíos, se rellenan con el valor más frecuente
+        ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False)) #Convierte categorías en números
     ])
 
-    preprocessor = ColumnTransformer(transformers=[
+    preprocessor = ColumnTransformer(transformers=[ #Junta las dos "cadenas de montaje" de nuevo
         ('num', numeric_transformer, numeric_features),
         ('cat', categorical_transformer, categorical_features)
     ], remainder='passthrough', sparse_threshold=0)
 
     print("4. Ensamblando Pipelines con Balanceo de Clases")
-    tipo_muestreo = config.get('sampling', 'none')
+    tipo_muestreo = config.get('sampling', 'none') #Se lee el JSON para ver si hay que hacer Oversampling (inventar datos de la clase minoritaria con SMOTE) o Undersampling (borrar datos de la mayoritaria)
     sampler_step = None
     if tipo_muestreo == 'undersampling':
         sampler_step = ('sampler', RandomUnderSampler(random_state=42))
@@ -153,7 +153,8 @@ def main():
     for nombre_algo, (pipeline, parametros) in algoritmos.items():
         if args.algo in [nombre_algo, 'all']:
             print(f"Entrenando {nombre_algo.upper()}...")
-            grid = GridSearchCV(pipeline, parametros, cv=5, scoring=metricas, refit='f1_macro', n_jobs=-1)
+            grid = GridSearchCV(pipeline, parametros, cv=5, scoring=metricas, refit='f1_macro', n_jobs=-1) #GridSearchCV prueba todas las combinaciones posibles de esos parámetros haciendo Validación Cruzada (cv=5, divide el 80% de entrenamiento en 5 trozos para auto-evaluarse de forma robusta).
+            #refit='f1_macro' hace que la máquina se quede con el modelo que saque la nota más alta en F1-macro, y lo reentrena con todos los datos
             grid.fit(X_train, y_train)
             print(f"Ganador {nombre_algo.upper()}: F-score {grid.best_score_:.4f}")
             modelos_ganadores.append((f"mejor_modelo_{nombre_algo}.sav", grid.best_estimator_))
@@ -161,7 +162,7 @@ def main():
 
     print("\n7. Guardando Modelos Físicos")
     for nombre, modelo in modelos_ganadores:
-        pickle.dump(modelo, open(nombre, 'wb'))
+        pickle.dump(modelo, open(nombre, 'wb')) #Se usa pickle para volcar esos modelos ganadores al disco duro para usarlos después
 
     print("\nEntrenamiento finalizado con éxito.")
 
